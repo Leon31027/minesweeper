@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minesweeper Pro</title>
+    <style>
+        :root {
+            --bg-color: #2c3e50;
+            --card-bg: #ffffff;
+            --board-bg: #ecf0f1;
+
+            --cell-size: 38px; /* Größere Zellen für Touch */
+            --cell-gap: 3px;
+
+            --cell-hidden: #bdc3c7;
+            --cell-hover: #a6acaf;
+            --cell-revealed: #ecf0f1;
+
+            --accent: #3498db;
+            --accent-hover: #2980b9;
+            --danger: #e74c3c;
+            --success: #27ae60;
+            --text-color: #34495e;
+
+            --shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Entfernt blaues Blinken auf Mobile */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Oben ausrichten damit Scrolling bei langen Listen geht */
+            color: var(--text-color);
+            user-select: none;
+            -webkit-touch-callout: none; /* iOS Menü unterdrücken */
+        }
+
+        /* Hauptcontainer für Layout Switch */
+        .main-layout {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            align-items: flex-start;
+            max-width: 1200px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        /* Gemeinsame Karten-Styles */
+        .card {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .game-card {
+            z-index: 2;
+        }
+
+        .score-card {
+            min-width: 280px;
+            max-width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        h2 { margin: 0 0 15px 0; font-size: 1.2rem; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Setup Menu */
+        .settings-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #95a5a6;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 60px;
+            padding: 8px;
+            border: 2px solid #ecf0f1;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: var(--text-color);
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        button.primary-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0 20px;
+            font-weight: bold;
+            cursor: pointer;
+            height: 42px; /* Match Input Height roughly */
+            align-self: flex-end;
+            transition: transform 0.1s, background-color 0.2s;
+            font-size: 14px;
+        }
+
+        button.primary-btn:active { transform: scale(0.96); }
+
+        /* Game Header */
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+
+        .info-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #95a5a6;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .counter {
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-size: 24px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            min-width: 70px;
+            text-align: center;
+        }
+
+        .reset-btn {
+            width: 56px;
+            height: 56px;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background-color: var(--accent);
+            color: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.4);
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .reset-btn:hover { transform: scale(1.05); background-color: var(--accent-hover); }
+        .reset-btn:active { transform: scale(0.95); }
+
+        /* Grid */
+        .grid-container {
+            overflow: auto;
+            max-width: 90vw;
+            max-height: 65vh;
+            border-radius: 8px;
+            padding: 8px;
+            background-color: var(--board-bg);
+            /* Scrollbar styling */
+            scrollbar-width: thin;
+        }
+
+        .grid {
+            display: grid;
+            gap: var(--cell-gap);
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: var(--cell-hidden);
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.1s, transform 0.1s;
+        }
+
+        .cell:active { transform: scale(0.95); }
+
+        .cell.checked {
+            background-color: var(--cell-revealed);
+            cursor: default;
+            transform: none;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .cell.checked.bomb {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .cell.flag {
+            color: var(--danger);
+        }
+
+        /* Numbers */
+        .one { color: #2980b9; } .two { color: #27ae60; } .three { color: #c0392b; }
+        .four { color: #8e44ad; } .five { color: #d35400; } .six { color: #16a085; }
+
+        /* Score List */
+        .score-list {
+            list-style: none;
+            padding: 0;
+            width: 100%;
+            margin: 0;
+        }
+
+        .score-item {
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .score-item:first-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        .score-item:last-child { border-bottom: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+
+        .score-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .score-date { font-size: 11px; color: #95a5a6; margin-bottom: 2px; }
+        .score-config { font-weight: bold; color: var(--text-color); }
+        .score-time { font-family: 'Courier New', monospace; font-weight: bold; color: var(--success); font-size: 16px; }
+
+        .clear-history {
+            margin-top: 15px;
+            background: transparent;
+            color: #95a5a6;
+            border: 1px solid #bdc3c7;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #status-msg { margin-top: 15px; font-weight: bold; min-height: 24px; text-align: center; }
+
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+
+    <!-- Hauptspiel -->
+    <div class="card game-card">
+        <div class="settings-panel">
+            <div class="input-group">
+                <label>Breite</label>
+                <input type="number" id="input-width" value="10" min="5" max="25" inputmode="numeric">
+            </div>
+            <div class="input-group">
+                <label>Höhe</label>
+                <input type="number" id="input-height" value="10" min="5" max="25" inputmode="numeric">
+            </div>
+            <div class="input-group">
+                <label>Bomben</label>
+                <input type="number" id="input-bombs" value="15" min="1" inputmode="numeric">
+            </div>
+            <button id="apply-settings" class="primary-btn">Start</button>
+        </div>
+
+        <div class="header">
+            <div class="info-box">
+                <span class="label">Bomben</span>
+                <div class="counter" id="bomb-counter">00</div>
+            </div>
+
+            <button class="reset-btn" id="reset-btn">↻</button>
+
+            <div class="info-box">
+                <span class="label">Zeit</span>
+                <div class="counter" id="timer">000</div>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div class="grid"></div>
+        </div>
+        <div id="status-msg"></div>
+    </div>
+
+    <!-- Highscores -->
+    <div class="card score-card">
+        <h2>Letzte Siege</h2>
+        <ul class="score-list" id="score-list">
+            <li style="text-align:center; color:#95a5a6; padding:10px;">Noch keine Siege</li>
+        </ul>
+        <button class="clear-history" id="clear-history">Verlauf löschen</button>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const grid = document.querySelector('.grid');
+        const resetBtn = document.querySelector('#reset-btn');
+        const applyBtn = document.querySelector('#apply-settings');
+        const bombCounterDisplay = document.querySelector('#bomb-counter');
+        const timerDisplay = document.querySelector('#timer');
+        const statusMsg = document.querySelector('#status-msg');
+        const scoreList = document.getElementById('score-list');
+        const clearHistoryBtn = document.getElementById('clear-history');
+
+        const inputWidth = document.getElementById('input-width');
+        const inputHeight = document.getElementById('input-height');
+        const inputBombs = document.getElementById('input-bombs');
+
+        // Game State
+        let width = 10;
+        let height = 10;
+        let bombAmount = 15;
+        let flags = 0;
+        let squares = [];
+        let isGameOver = false;
+        let isFirstClick = true;
+        let timer;
+        let timeElapsed = 0;
+
+        // Long Press Variablen
+        let pressTimer;
+        let isLongPress = false;
+        const longPressDuration = 500; // ms
+
+        // --- Storage Logic ---
+        function loadScores() {
+            const history = JSON.parse(localStorage.getItem('minesweeper_scores')) || [];
+            scoreList.innerHTML = '';
+
+            if (history.length === 0) {
+                scoreList.innerHTML = '<li style="text-align:center; color:#95a5a6; padding:10px;">Noch keine Siege</li>';
+                return;
+            }
+
+            // Sortieren nach Datum (neueste zuerst)
+            history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            history.forEach(entry => {
+                const li = document.createElement('li');
+                li.className = 'score-item';
+                li.innerHTML = `
+                    <div class="score-details">
+                        <span class="score-date">${entry.date}</span>
+                        <span class="score-config">${entry.config}</span>
+                    </div>
+                    <span class="score-time">${entry.time}s</span>
+                `;
+                scoreList.appendChild(li);
+            });
+        }
+
+        function saveScore(time) {
+            const history = JSON.parse(localStorage.getItem('minesweeper_scores')) || [];
+
+            const newEntry = {
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' }),
+                time: time,
+                config: `${width}x${height} (${bombAmount} 💣)`
+            };
+
+            // Max 10 Einträge speichern
+            history.unshift(newEntry);
+            if (history.length > 20) history.pop();
+
+            localStorage.setItem('minesweeper_scores', JSON.stringify(history));
+            loadScores();
+        }
+
+        clearHistoryBtn.addEventListener('click', () => {
+            localStorage.removeItem('minesweeper_scores');
+            loadScores();
+        });
+
+        // --- Timer Logic ---
+        function startTimer() {
+            clearInterval(timer);
+            timeElapsed = 0;
+            timerDisplay.innerText = '000';
+            timer = setInterval(() => {
+                timeElapsed++;
+                timerDisplay.innerText = timeElapsed.toString().padStart(3, '0');
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timer);
+        }
+
+        // --- Settings Logic ---
+        function getSettings() {
+            let w = parseInt(inputWidth.value);
+            let h = parseInt(inputHeight.value);
+            let b = parseInt(inputBombs.value);
+
+            // Validierung für Mobile/Desktop Performance
+            if (w < 5) w = 5; if (w > 30) w = 30;
+            if (h < 5) h = 5; if (h > 30) h = 30;
+
+            const maxBombs = Math.floor((w * h) * 0.85); // Max 85% Bomben
+            if (b < 1) b = 1;
+            if (b > maxBombs) b = maxBombs;
+
+            inputWidth.value = w;
+            inputHeight.value = h;
+            inputBombs.value = b;
+
+            width = w;
+            height = h;
+            bombAmount = b;
+        }
+
+        function createBoard() {
+            getSettings();
+
+            grid.innerHTML = '';
+            squares = [];
+            isGameOver = false;
+            isFirstClick = true;
+            flags = 0;
+
+            resetBtn.innerText = '↻';
+            resetBtn.style.backgroundColor = 'var(--accent)';
+
+            bombCounterDisplay.innerHTML = bombAmount;
+            statusMsg.innerHTML = 'Drücken zum Starten';
+            stopTimer();
+            timerDisplay.innerText = '000';
+
+            grid.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
+
+            // Felder erstellen
+            for (let i = 0; i < width * height; i++) {
+                const square = document.createElement('div');
+                square.setAttribute('id', i);
+                square.classList.add('cell');
+                square.classList.add('valid');
+                grid.appendChild(square);
+                squares.push(square);
+
+                // --- Touch & Mouse Events für Long Press ---
+
+                // Mouse Events
+                square.addEventListener('mousedown', (e) => handlePressStart(e, square));
+                square.addEventListener('mouseup', () => handlePressEnd(square));
+                square.addEventListener('mouseleave', () => clearPressTimer());
+
+                // Touch Events
+                square.addEventListener('touchstart', (e) => handlePressStart(e, square), {passive: false});
+                square.addEventListener('touchend', (e) => handlePressEnd(square));
+                square.addEventListener('touchmove', () => clearPressTimer()); // Wenn man scrollt, abbrechen
+
+                // Standard Context Menu (Rechtsklick)
+                square.oncontextmenu = function(e) {
+                    e.preventDefault();
+                    if(!isLongPress) addFlag(square);
+                }
+            }
+        }
+
+        // --- Long Press Handler ---
+        function handlePressStart(e, square) {
+            if (isGameOver) return;
+            // Bei Touch kein Standard-Verhalten (Zoom etc)
+            if(e.type === 'touchstart') {
+                // e.preventDefault(); // Verhindert manchmal Scrollen, hier vorsichtig sein
+            }
+
+            isLongPress = false;
+
+            // Nur Linksklick (0) oder Touch
+            if (e.button === 0 || e.type === 'touchstart') {
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    if (navigator.vibrate) navigator.vibrate(50); // Haptisches Feedback
+                    addFlag(square);
+                }, longPressDuration);
+            }
+        }
+
+        function handlePressEnd(square) {
+            clearTimeout(pressTimer);
+            // Wenn es KEIN Longpress war und wir nicht GameOver sind -> Normaler Klick
+            if (!isLongPress && !isGameOver) {
+                // Da mousedown/touchstart feuert, müssen wir sicherstellen dass wir nicht click doppelt triggern
+                // Wir rufen click() manuell auf
+                click(square);
+            }
+            isLongPress = false;
+        }
+
+        function clearPressTimer() {
+            clearTimeout(pressTimer);
+        }
+
+        // --- Game Logic ---
+
+        function getNeighbors(id) {
+            const neighbors = [];
+            const x = id % width;
+            const y = Math.floor(id / width);
+
+            for (let nx = x - 1; nx <= x + 1; nx++) {
+                for (let ny = y - 1; ny <= y + 1; ny++) {
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        const neighborId = ny * width + nx;
+                        if (neighborId !== id) {
+                            neighbors.push(neighborId);
+                        }
+                    }
+                }
+            }
+            return neighbors;
+        }
+
+        function placeBombsAndNumbers(clickedIndex) {
+            const safeZone = [clickedIndex, ...getNeighbors(clickedIndex)];
+
+            let availableIndices = [];
+            for(let i=0; i<width*height; i++) {
+                if(!safeZone.includes(i)) availableIndices.push(i);
+            }
+
+            availableIndices.sort(() => Math.random() - 0.5);
+
+            for(let i=0; i<bombAmount; i++) {
+                if(availableIndices[i] !== undefined) {
+                    squares[availableIndices[i]].classList.remove('valid');
+                    squares[availableIndices[i]].classList.add('bomb');
+                }
+            }
+
+            for (let i = 0; i < squares.length; i++) {
+                let total = 0;
+                const neighbors = getNeighbors(i);
+                neighbors.forEach(neighborId => {
+                    if (squares[neighborId].classList.contains('bomb')) total++;
+                });
+
+                if (!squares[i].classList.contains('bomb')) {
+                    squares[i].setAttribute('data', total);
+                }
+            }
+        }
+
+        function addFlag(square) {
+            if (isGameOver || isFirstClick) return;
+
+            if (!square.classList.contains('checked') && (flags < bombAmount || square.classList.contains('flag'))) {
+                if (!square.classList.contains('flag')) {
+                    square.classList.add('flag');
+                    square.innerHTML = '🚩';
+                    flags++;
+                } else {
+                    square.classList.remove('flag');
+                    square.innerHTML = '';
+                    flags--;
+                }
+                bombCounterDisplay.innerHTML = bombAmount - flags;
+                checkForWin();
+            }
+        }
+
+        function click(square) {
+            let currentId = parseInt(square.id);
+
+            if (isGameOver) return;
+            if (square.classList.contains('checked') || square.classList.contains('flag')) return;
+
+            if (isFirstClick) {
+                placeBombsAndNumbers(currentId);
+                isFirstClick = false;
+                startTimer();
+            }
+
+            if (square.classList.contains('bomb')) {
+                gameOver(square);
+            } else {
+                let total = parseInt(square.getAttribute('data'));
+
+                if (total !== 0) {
+                    square.classList.add('checked');
+                    square.innerHTML = total;
+                    setNumberColor(square, total);
+                    checkForWin();
+                    return;
+                }
+                checkSquare(square, currentId);
+            }
+        }
+
+        function setNumberColor(square, total) {
+            const colors = ['one','two','three','four','five','six','seven','eight'];
+            if(total > 0 && total <= 8) square.classList.add(colors[total-1]);
+        }
+
+        function checkSquare(square, currentId) {
+            if (square.classList.contains('checked') || square.classList.contains('flag')) return;
+
+            square.classList.add('checked');
+            checkForWin();
+
+            let total = parseInt(square.getAttribute('data'));
+            if (total !== 0) {
+                square.innerHTML = total;
+                setNumberColor(square, total);
+                return;
+            }
+
+            const neighbors = getNeighbors(currentId);
+            neighbors.forEach(neighborId => {
+                const nextSquare = document.getElementById(neighborId);
+                checkSquare(nextSquare, neighborId);
+            });
+        }
+
+        function gameOver(square) {
+            statusMsg.innerHTML = 'Game Over!';
+            statusMsg.style.color = 'var(--danger)';
+            resetBtn.innerText = '❌';
+            resetBtn.style.backgroundColor = 'var(--danger)';
+            isGameOver = true;
+            stopTimer();
+
+            squares.forEach(sq => {
+                if (sq.classList.contains('bomb')) {
+                    sq.innerHTML = '💣';
+                    sq.classList.remove('bomb');
+                    sq.classList.add('checked');
+                    sq.classList.add('bomb');
+                }
+            });
+        }
+
+        function checkForWin() {
+            let checkedCount = 0;
+            for (let i = 0; i < squares.length; i++) {
+                if (squares[i].classList.contains('checked')) {
+                    checkedCount++;
+                }
+            }
+
+            if (checkedCount === (width * height - bombAmount)) {
+                statusMsg.innerHTML = 'GEWONNEN!';
+                statusMsg.style.color = 'var(--success)';
+                resetBtn.innerText = '🏆';
+                resetBtn.style.backgroundColor = 'var(--success)';
+                isGameOver = true;
+                stopTimer();
+
+                saveScore(timeElapsed);
+
+                squares.forEach(sq => {
+                    if (sq.classList.contains('bomb') && !sq.classList.contains('checked')) {
+                        sq.innerHTML = '🚩';
+                        sq.classList.add('flag');
+                    }
+                });
+            }
+        }
+
+        // Event Listeners
+        resetBtn.addEventListener('click', createBoard);
+        applyBtn.addEventListener('click', createBoard);
+
+        // Initialisieren
+        loadScores();
+        createBoard();
+    });
+</script>
+</body>
+</html>
